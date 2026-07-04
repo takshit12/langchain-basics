@@ -30,3 +30,12 @@ python-dotenv>=1.0
 # never import these -- skip them if you only want the command-line demos.
 streamlit>=1.30
 chainlit>=1.0
+
+# ---- Advanced RAG demo (advanced_rag_demo.py) ----
+# In LangChain 1.x the higher-level retrievers/compressors moved into
+# `langchain-classic` (EnsembleRetriever, ContextualCompressionRetriever,
+# MultiQueryRetriever, CrossEncoderReranker, EmbeddingsFilter). `rank-bm25`
+# backs BM25Retriever for hybrid dense+sparse search. The cross-encoder reranker
+# model (~80MB) downloads on first use, like the embedding model.
+langchain-classic>=1.0,<2.0
+rank-bm25>=0.2

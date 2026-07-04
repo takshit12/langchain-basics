@@ -309,6 +309,7 @@ python agent_and_middleware.py
 | `langchain_fundamentals.py` | `python langchain_fundamentals.py` | The core building blocks: **Prompt Template**, **Output Parser**, the `prompt \| model \| parser` **LCEL chain**, and a `@tool` + `bind_tools`. No key needed — the model step swaps to an offline `Runnable`. |
 | `build_rag_index.py` | `python build_rag_index.py --doc docs/kestrel_home_faq.md --index-dir faiss_index` | The **first half of RAG**: load → split → embed → store. Fully local, no key. Pre-run before class. |
 | `rag_demo.py` | `python rag_demo.py` | **THE live demo.** Plain-LLM (wrong) vs full-RAG (grounded) on a private document, printing the retrieved chunks that changed the answer. |
+| `advanced_rag_demo.py` | `python advanced_rag_demo.py` | **Advanced RAG.** Six retrieval strategies on one index, side by side — baseline, **MMR** (diversity), cross-encoder **reranking**, dense+BM25 **hybrid**, LLM **multi-query**, and contextual **compression**. Retrieval-focused; five of six run offline. |
 | `agent_and_middleware.py` | `python agent_and_middleware.py` | **Bonus — not part of the live walkthrough.** `create_agent` = model + tool + middleware in a few lines, compiled to a LangGraph `CompiledStateGraph`. |
 
 > `rag_demo.py` also runs headless (`python rag_demo.py < /dev/null` on macOS/Linux,
@@ -326,6 +327,23 @@ a `:command`:
 - `:chunks` — reprint the chunks retrieved by the last RAG run
 - `:help` — reprint the command help
 - `:q` / `quit` / `exit` — leave
+
+### `advanced_rag_demo.py` controls
+
+Type a bare question to run **all six** retrieval strategies for it, or isolate one:
+
+- `<a question>` — run every strategy in sequence and compare the chunks each returns
+- `:baseline <q>` — naive top-k dense similarity (the "before")
+- `:mmr <q>` — MMR: relevant **and** diverse (drops near-duplicate chunks)
+- `:rerank <q>` — retrieve wide, then a **cross-encoder** re-scores and keeps the best few
+- `:hybrid <q>` — dense (meaning) **+** BM25 (exact keywords), rank-fused
+- `:multiquery <q>` — an LLM rephrases your question several ways, unions the hits (needs a key)
+- `:compress <q>` — retrieve wide, then filter out weak chunks below a similarity threshold
+- `:index <dir>` — switch index dir · `:help` — command help · `:q` / `quit` / `exit` — leave
+
+> First run downloads a second ~80 MB model (the reranking cross-encoder). Only
+> `:multiquery` needs an API key; the other five run fully offline and skip cleanly
+> if a piece (cross-encoder / `rank-bm25`) is missing.
 
 ## Optional: RAG with a UI
 
