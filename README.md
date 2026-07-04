@@ -55,6 +55,15 @@ py --version         # must be >= 3.11
 git --version
 ```
 
+> **⚠️ Python version matters — this is the #1 install failure.** LangChain 1.x
+> requires **Python ≥ 3.10** (this repo targets **3.11**). If your `python3` is older
+> (e.g. 3.9, common as the macOS default), `pip install -r requirements.txt` fails with a
+> huge version list and **`ERROR: No matching distribution found for langchain<2.0,>=1.0`**
+> — pip is silently filtering out every 1.x release as incompatible with your Python, *not*
+> a broken package. Fix: get 3.11 (`brew install python@3.11`, or `pyenv install 3.11`, or
+> just use `uv` which fetches it for you) and build the venv with it explicitly — see the
+> `python3.11` note in step 3 and [Troubleshooting](#7-troubleshooting).
+
 > **Heads-up (read before class):** this repo installs `sentence-transformers`, which
 > pulls in CPU **`torch` (~1–2 GB, several minutes to download, needs internet)** — much
 > heavier than a typical LangChain install. On top of that, the **first** index build
@@ -94,17 +103,25 @@ uv pip install -r requirements.txt
 
 **Option B — plain `venv` (no extra tools):**
 
+Use `python3.11` **explicitly** when creating the venv — plain `venv` can't fetch a Python
+for you, so a bare `python3` that happens to be 3.9 produces a broken 3.9 venv (see the
+warning in step 1). If `python3 --version` already reports ≥ 3.11, `python3` is fine too.
+
 ```bash
 # macOS / Linux
-python3 -m venv .venv
+python3.11 -m venv .venv          # or: python3 -m venv .venv  (only if python3 is >= 3.11)
 source .venv/bin/activate
+python --version                  # confirm it says 3.11.x BEFORE installing
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
 ```powershell
 # Windows (PowerShell)
-py -m venv .venv
+py -3.11 -m venv .venv            # the -3.11 selects Python 3.11 explicitly
 .venv\Scripts\Activate.ps1
+python --version                  # confirm it says 3.11.x
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
@@ -241,6 +258,24 @@ python agent_and_middleware.py
 
 ### 7. Troubleshooting
 
+- **`ERROR: No matching distribution found for langchain<2.0,>=1.0`** (pip prints a giant
+  list of old `0.0.x`–`0.3.x` versions and stops at ~`0.4.0.dev0`). **Your venv is on too
+  old a Python** — almost always **3.9**, the macOS default. LangChain 1.x needs Python
+  ≥ 3.10, so pip filters out every 1.x release and shows only the 0.x line. A tell: the same
+  error mentions `pip version 21.2.4`, the pip bundled with Python 3.9. Changing the command
+  (`pip` → `python -m pip` → `python3 -m pip`) won't help — they're all the same interpreter.
+  **Fix:** rebuild the venv on 3.11:
+  ```bash
+  deactivate; rm -rf .venv
+  brew install python@3.11               # or: pyenv install 3.11
+  python3.11 -m venv .venv               # note: python3.11, NOT python3
+  source .venv/bin/activate
+  python --version                       # must say 3.11.x
+  python -m pip install --upgrade pip
+  python -m pip install -r requirements.txt
+  ```
+  (Or skip the Python chore entirely with `uv`, which fetches 3.11 for you — see Option A.)
+  Verify success: `python -c "import langchain; print(langchain.__version__)"` → `1.x`.
 - **`pip: command not found` (or `zsh: command not found: pip`) after activating the venv.**
   Your venv was created by `uv venv` (Option A), which doesn't seed `pip`. Install with
   `uv pip install -r requirements.txt` instead, or add pip once with
