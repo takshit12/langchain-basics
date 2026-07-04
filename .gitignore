@@ -1,0 +1,23 @@
+# Python env + caches
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Secrets
+.env
+
+# Local-only / private (everything the presenter keeps for themselves lives here:
+# instructor guide, read-aloud script, per-file explainers, the slide deck).
+explainers/
+
+# Build artifacts (users generate these with build_rag_index.py; see README)
+faiss_index/
+faiss_index_*/
+
+# Working docs / dev tooling — never published
+BUILD_SPEC.md
+.claude/
+AGENTS.md
+skills-lock.json
+opensrc/
