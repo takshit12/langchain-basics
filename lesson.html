@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LangChain Basics — Signal-Flow Deck</title>
+<style>
+:root{
+  --paper:#EDF1F5;
+  --panel:#FFFFFF;
+  --ink:#10203A;
+  --muted:#5A6B82;
+  --line:#C9D6E4;
+  --pipe:#1F6FEB;
+  --pipe-soft:#E4EEFD;
+  --signal:#F08C00;
+  --signal-soft:#FDF0DC;
+  --vector:#7048E8;
+  --vector-soft:#EEE9FB;
+  --term-bg:#0E1726;
+  --term-fg:#E6EDF6;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code","Consolas",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:
+  radial-gradient(1200px 700px at 50% -10%, #F6F9FC, var(--paper));}
+#deck{position:absolute;top:50%;left:50%;width:1280px;height:720px;transform-origin:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 24px 70px rgba(16,32,58,.18);overflow:hidden}
+
+/* ---------- persistent chrome ---------- */
+#eyebrow{position:absolute;top:26px;left:74px;z-index:5;font-family:var(--mono);font-size:13px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+#counter{position:absolute;top:26px;right:36px;z-index:5;font-family:var(--mono);font-size:13px;
+  letter-spacing:.12em;color:var(--muted)}
+.rail{position:absolute;top:0;left:0;width:44px;height:100%;z-index:4;border-right:1px solid var(--line);
+  background:linear-gradient(180deg,#F7FAFD,#EEF3F8);display:flex;align-items:center;justify-content:center}
+.rail .glyph{font-family:var(--mono);font-weight:800;color:var(--pipe);font-size:22px;
+  writing-mode:vertical-rl;letter-spacing:.5em;transform:rotate(180deg);opacity:.85}
+.progress{position:absolute;left:44px;right:0;bottom:0;height:5px;background:var(--line);z-index:5}
+#bar{height:100%;width:0;background:var(--pipe);transition:width .25s ease}
+
+/* ---------- slides ---------- */
+.slide{position:absolute;inset:0;padding:64px 74px 48px 118px;display:none;flex-direction:column;justify-content:center}
+.slide.active{display:flex}
+@keyframes riseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes settle{from{opacity:0}to{opacity:1}}
+.slide.active .anim{animation:riseIn .22s ease both}
+.slide.active .anim2{animation:riseIn .22s ease .06s both}
+#eyebrow,#counter{animation:settle .3s ease both}
+
+/* diagram-grid frame */
+.slide[data-diagram]{background-image:
+  linear-gradient(var(--line) 1px, transparent 1px),
+  linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:34px 34px;background-position:118px 64px;
+  background-blend-mode:normal}
+.slide[data-diagram]::after{content:"";position:absolute;inset:44px 30px 30px 60px;border:1px solid var(--line);
+  border-radius:12px;pointer-events:none;opacity:.55}
+.slide[data-diagram] > *{position:relative;z-index:1}
+
+/* ---------- typography ---------- */
+h1.title{font-size:76px;font-weight:800;letter-spacing:-.02em;line-height:1.02;margin:0}
+h2{font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1.06;margin:0 0 6px}
+.lead{font-size:23px;line-height:1.5;color:var(--ink);max-width:1000px;margin:8px 0 0}
+.sub{font-size:19px;line-height:1.5;color:var(--muted);max-width:1000px}
+.kicker{font-family:var(--mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--pipe);margin:0 0 14px;font-weight:600}
+.kicker.v{color:var(--vector)} .kicker.s{color:var(--signal)}
+ul.pts{list-style:none;padding:0;margin:18px 0 0;max-width:1010px}
+ul.pts li{position:relative;padding:6px 0 6px 30px;font-size:21px;line-height:1.45}
+ul.pts li::before{content:"|";position:absolute;left:4px;top:6px;color:var(--pipe);font-family:var(--mono);
+  font-weight:800;font-size:20px}
+b,strong{font-weight:700}
+.hl{color:var(--signal);font-weight:700}
+.hlv{color:var(--vector);font-weight:700}
+.hlp{color:var(--pipe);font-weight:700}
+
+/* ---------- pills ---------- */
+.pill{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;padding:7px 16px;border-radius:999px;border:1px solid var(--line)}
+.pill.start{background:var(--pipe);color:#fff;border-color:var(--pipe)}
+.pill.end{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pill.node{background:#fff;color:var(--ink)}
+
+/* ---------- two-column contrast ---------- */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px}
+.col{border:1px solid var(--line);border-radius:14px;padding:22px 24px;background:#fff}
+.col.bad{background:linear-gradient(180deg,#fff,#FBF2F0);border-color:#E7C3BA}
+.col.good{background:linear-gradient(180deg,#fff,#F4F8FF);border-color:#BFD6F5}
+.col h3{margin:0 0 12px;font-size:16px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.col.bad h3{color:#B5502F} .col.good h3{color:var(--pipe)}
+.col ul{margin:0;padding-left:20px} .col li{font-size:18px;line-height:1.5;margin:7px 0}
+
+/* ---------- grids / cards ---------- */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:20px}
+.card{border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:#fff}
+.card .t{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--pipe);font-weight:700;margin-bottom:8px}
+.card .d{font-size:17px;line-height:1.45;color:var(--ink)}
+.card .tie{margin-top:10px;font-size:14px;color:var(--muted);border-top:1px dashed var(--line);padding-top:9px}
+.card.v .t{color:var(--vector)} .card.s .t{color:var(--signal)}
+
+/* ---------- callout ---------- */
+.callout{margin-top:22px;border:1px solid var(--line);border-left:5px solid var(--pipe);border-radius:12px;
+  background:linear-gradient(180deg,#fff,#F4F8FF);padding:20px 24px;max-width:1010px}
+.callout .lbl{font-family:var(--mono);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--pipe);font-weight:700;margin-bottom:8px}
+.callout p{margin:0;font-size:20px;line-height:1.5}
+.callout.warn{border-left-color:var(--signal);background:linear-gradient(180deg,#fff,#FDF7EE)}
+.callout.warn .lbl{color:var(--signal)}
+.callout.v{border-left-color:var(--vector);background:linear-gradient(180deg,#fff,#F6F3FD)}
+.callout.v .lbl{color:var(--vector)}
+
+/* ---------- terminal / code ---------- */
+.term{background:var(--term-bg);color:var(--term-fg);border-radius:12px;padding:18px 22px;margin-top:18px;
+  font-family:var(--mono);font-size:16px;line-height:1.55;max-width:1050px;overflow:auto;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+.term .cap{display:flex;gap:7px;margin-bottom:12px}
+.term .cap i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.term .cap i:nth-child(1){background:#ff5f56}.term .cap i:nth-child(2){background:#ffbd2e}.term .cap i:nth-child(3){background:#27c93f}
+.term pre{margin:0;white-space:pre-wrap;word-break:break-word}
+.tok-kw{color:#79b8ff;font-weight:600}
+.tok-str{color:#ffcf8f}
+.tok-com{color:#6b7c93}
+.tok-fn{color:#c3a6ff}
+.tok-pipe{color:#79b8ff;font-weight:800}
+.term .prompt{color:#6b7c93}
+.term .out{color:#9fe0b8}
+.term .warnline{color:#ffcf8f}
+
+/* code chip inline */
+code.k{font-family:var(--mono);font-size:.92em;background:#EAF0F7;border:1px solid var(--line);
+  border-radius:6px;padding:1px 6px;color:var(--ink)}
+
+/* ---------- table ---------- */
+table.map{border-collapse:collapse;width:100%;max-width:1050px;margin-top:20px;font-size:17px}
+table.map th,table.map td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line)}
+table.map th{font-family:var(--mono);font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:700}
+table.map td:first-child{font-weight:700}
+table.map .cls{font-family:var(--mono);color:var(--vector);font-weight:600}
+table.map tr:last-child td{border-bottom:none}
+
+/* ---------- svg helpers ---------- */
+.svg-wrap{margin-top:12px;display:flex;justify-content:center}
+svg{max-width:100%;height:auto}
+.chip{fill:#fff;stroke:var(--line);stroke-width:1.6}
+.chip.act{fill:var(--pipe-soft);stroke:var(--pipe);stroke-width:2.2}
+.chip.sig{fill:var(--signal-soft);stroke:var(--signal);stroke-width:2}
+.chip.vec{fill:var(--vector-soft);stroke:var(--vector);stroke-width:2}
+.chip-t{fill:var(--ink);font:700 17px var(--sans);text-anchor:middle;dominant-baseline:middle}
+.chip-s{fill:var(--muted);font:600 12px var(--mono);text-anchor:middle;dominant-baseline:middle;letter-spacing:.06em}
+.flow{stroke:var(--pipe);stroke-width:3.4;fill:none}
+.flow.dash{stroke-dasharray:6 6}
+.flow.vec{stroke:var(--vector)}
+.pipeglyph{fill:var(--pipe);font:800 30px var(--mono);text-anchor:middle;dominant-baseline:middle}
+.svg-lbl{fill:var(--muted);font:700 12px var(--mono);text-anchor:middle;letter-spacing:.1em;text-transform:uppercase}
+.svg-note{fill:var(--muted);font:600 13px var(--sans);text-anchor:middle}
+.slabtxt{fill:var(--ink);font:800 20px var(--sans);text-anchor:middle;dominant-baseline:middle}
+.slabsub{fill:var(--muted);font:600 12.5px var(--mono);text-anchor:middle;dominant-baseline:middle}
+.dot{fill:var(--vector)} .dot.q{fill:var(--signal)}
+.title-foot{margin-top:26px;color:var(--muted);font-family:var(--mono);font-size:14px;letter-spacing:.06em}
+.two{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;align-items:center;margin-top:14px}
+
+@media (prefers-reduced-motion: reduce){
+  .slide.active .anim,.slide.active .anim2,#eyebrow,#counter{animation:none}
+  #bar{transition:none}
+  *{transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="deck">
+    <div class="rail"><span class="glyph">| | |</span></div>
+    <div id="eyebrow"></div>
+    <div id="counter"></div>
+
+    <!-- 1 · TITLE -->
+    <section class="slide" data-section="LANGCHAIN BASICS">
+      <div class="anim"><span class="pill start">▶ Start</span></div>
+      <h1 class="title anim2" style="margin-top:22px">LangChain<br>Basics</h1>
+      <p class="lead anim2" style="margin-top:18px;max-width:840px">The components underneath everything you have already built —
+        wired together by one pipe: the LCEL <span class="hlp">|</span></p>
+      <div class="title-foot anim2">3-HOUR LIVE SESSION · CORE CONCEPTS · THE STACK · RAG · LIVE DEMO</div>
+    </section>
+
+    <!-- 2 · FRAMING -->
+    <section class="slide" data-section="ORIENTATION">
+      <p class="kicker anim">The frame for today</p>
+      <h2 class="anim">You already built this.</h2>
+      <p class="lead anim2">Today is not new material stacked on top of LangGraph and Deep Agents.
+        It is <span class="hlp">what was underneath the whole time.</span></p>
+      <div class="cols anim2" style="margin-top:26px">
+        <div class="col good">
+          <h3>What you know</h3>
+          <ul>
+            <li>LangGraph — state, nodes, edges, checkpoints</li>
+            <li>Deep Agents — planning, sub-agents, file systems</li>
+            <li>LangSmith / Langfuse — tracing your runs</li>
+          </ul>
+        </div>
+        <div class="col good">
+          <h3>What we name today</h3>
+          <ul>
+            <li>The components those layers orchestrate</li>
+            <li>Why they all snap together with one pipe</li>
+            <li>RAG — the same pipe, with a retriever spliced in</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · WHAT LANGCHAIN IS -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · What LangChain is</p>
+      <h2 class="anim">A toolbox, not a framework.</h2>
+      <p class="lead anim2">LangChain is a <span class="hlp">library of components</span> for working with LLMs —
+        models, prompts, tools, memory, retrievers. It is not an agent framework itself. It is the box of parts.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">Models</div><div class="d">A standard wrapper around any LLM provider.</div></div>
+        <div class="card"><div class="t">Prompts</div><div class="d">Reusable instructions with fill-in variables.</div></div>
+        <div class="card"><div class="t">Tools</div><div class="d">Functions the model can decide to call.</div></div>
+        <div class="card"><div class="t">Memory</div><div class="d">Conversation state, short- and long-term.</div></div>
+        <div class="card"><div class="t">Retrievers</div><div class="d">Fetch relevant documents for a question.</div></div>
+        <div class="card"><div class="t">Parsers</div><div class="d">Turn raw model text into structured data.</div></div>
+      </div>
+    </section>
+
+    <!-- 4 · CORE PROBLEM -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The core problem it solves</p>
+      <h2 class="anim">A raw LLM call is text-in, text-out.</h2>
+      <div class="cols anim2">
+        <div class="col bad">
+          <h3>A model alone</h3>
+          <ul>
+            <li>Does <b>not remember</b> the last turn</li>
+            <li><b>Cannot look anything up</b> — no live or private data</li>
+            <li><b>Cannot take action</b> — no tools, no side effects</li>
+            <li>Only knows what it was trained on</li>
+          </ul>
+        </div>
+        <div class="col good">
+          <h3>LangChain adds</h3>
+          <ul>
+            <li><b>Memory</b> — carry state across turns</li>
+            <li><b>Retrievers</b> — pull in the right documents</li>
+            <li><b>Tools</b> — let the model act on the world</li>
+            <li>Standard, <b>swappable</b> pieces for each</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW · WHAT IS A CHAIN -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The core idea</p>
+      <h2 class="anim">What is a <span style="color:var(--pipe)">chain</span>?</h2>
+      <p class="lead anim2">A chain is just <b>several small steps wired in a row</b>, where each step's output
+        becomes the next step's input. Instead of one giant LLM call, you do the work in <b>ordered stages</b>.</p>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 1000 150" width="940">
+          <defs><marker id="mca" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--pipe)"/></marker></defs>
+          <rect class="chip" x="20" y="46" width="150" height="58" rx="10"/><text x="95" y="79" class="chip-t">Your input</text>
+          <line class="flow" x1="172" y1="75" x2="238" y2="75" marker-end="url(#mca)"/><text x="205" y="56" class="pipeglyph">|</text>
+          <rect class="chip act" x="246" y="46" width="170" height="58" rx="10"/><text x="331" y="79" class="chip-t">Step 1</text>
+          <line class="flow" x1="418" y1="75" x2="484" y2="75" marker-end="url(#mca)"/><text x="451" y="56" class="pipeglyph">|</text>
+          <rect class="chip act" x="492" y="46" width="170" height="58" rx="10"/><text x="577" y="79" class="chip-t">Step 2</text>
+          <line class="flow" x1="664" y1="75" x2="730" y2="75" marker-end="url(#mca)"/><text x="697" y="56" class="pipeglyph">|</text>
+          <rect class="chip sig" x="738" y="46" width="160" height="58" rx="10"/><text x="818" y="79" class="chip-t">Result</text>
+          <text x="500" y="132" class="svg-note">each step hands its output to the next — that hand-off is the whole idea of a "chain"</text>
+        </svg>
+      </div>
+      <div class="callout anim2"><div class="lbl">Think of it like</div>
+        <p>A <b>recipe</b> or an <b>assembly line</b>: chop → cook → plate. Each stage does one job and passes its
+          result down the line. LangChain just lets the stages be LLM calls, lookups, tools, and formatters.</p></div>
+    </section>
+
+    <!-- NEW · HOW LANGCHAIN WORKS -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The mental model</p>
+      <h2 class="anim">Pick parts. Wire them. Run once.</h2>
+      <p class="lead anim2">Working in LangChain is always the <b>same three moves</b> — no matter how big the app gets.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">1 · Pick</div><div class="d">Choose the components you need — a chat model, a prompt, maybe a tool or a retriever.</div></div>
+        <div class="card"><div class="t">2 · Wire</div><div class="d">Connect them into a chain, in the order the data should flow through them.</div></div>
+        <div class="card"><div class="t">3 · Run</div><div class="d">Call the chain <b>once</b> with <code class="k">.invoke()</code> — LangChain runs each step and passes the data along.</div></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">The shift in thinking</div>
+        <p>You <b>describe the pipeline</b> — the parts and their order — and LangChain runs it for you. You are not
+          hand-writing the plumbing; you are declaring the shape.</p></div>
+    </section>
+
+    <!-- NEW · THE TOOLBOX, OPENED -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · What's in the box</p>
+      <h2 class="anim">The parts you chain together.</h2>
+      <p class="lead anim2">These are the main <b>component families</b>. Every one is a <code class="k">Runnable</code> — one
+        link you can drop into a chain. We go deeper on each in a moment; this is the map first.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">Chat Models</div><div class="d">The LLM call itself — one standard wrapper around any provider.</div></div>
+        <div class="card"><div class="t">Prompt Templates</div><div class="d">Reusable instructions with <code class="k">{blanks}</code> filled at runtime.</div></div>
+        <div class="card"><div class="t">Output Parsers</div><div class="d">Turn the model's raw text into a string, JSON, or a typed object.</div></div>
+        <div class="card"><div class="t">Tools</div><div class="d">Functions the model can choose to call to take action.</div></div>
+        <div class="card"><div class="t">Memory</div><div class="d">Carry context across the turns of a conversation.</div></div>
+        <div class="card"><div class="t">Retrievers</div><div class="d">Fetch the right documents to ground an answer (the R in RAG).</div></div>
+      </div>
+    </section>
+
+    <!-- NEW · COMPOSABILITY -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Composability</p>
+      <h2 class="anim">A chain is itself a component.</h2>
+      <p class="lead anim2">Here is the part that makes it scale: once you wire steps into a chain, <b>that whole chain is
+        also a <code class="k">Runnable</code></b> — so you can drop it inside a bigger chain, make it a LangGraph node,
+        or hand it to an agent. Small pieces nest into big ones.</p>
+      <ul class="pts anim2">
+        <li>A single step can be one model call <span class="hlp">or</span> an entire sub-chain — the outside can't tell.</li>
+        <li>That is why the same building blocks power a one-line demo <span class="hlp">and</span> a full agent.</li>
+      </ul>
+      <div class="callout v anim2"><div class="lbl">You have already seen this</div>
+        <p>Every <b>LangGraph node</b> you built wrapped a small LangChain chain — a model or a tool call. Same parts,
+          one level up. The abstraction changed; the pieces did not.</p></div>
+    </section>
+
+    <!-- NEW · A REQUEST'S JOURNEY -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · A request's journey</p>
+      <h2 class="anim">One question, step by step.</h2>
+      <p class="lead anim2">Watch a single request flow through a simple <code class="k">prompt | model | parser</code> chain —
+        and notice how the data <b>changes shape</b> at each hop.</p>
+      <ul class="pts anim2">
+        <li><b>You pass in</b> a small dict — <code class="k">{"topic": "Runnables"}</code>.</li>
+        <li><b>Prompt</b> fills the template &rarr; a ready-to-send <span class="hlp">message</span>.</li>
+        <li><b>Model</b> reads the message &rarr; a raw <span class="hlp">AI message</span> (text + metadata).</li>
+        <li><b>Parser</b> strips it down &rarr; a clean <span class="hlp">string</span> you can use.</li>
+      </ul>
+      <div class="callout anim2"><div class="lbl">Why it just works</div>
+        <p>Each step's output is a valid input to the next because they all share <b>one interface</b>. That interface
+          has a name — the <code class="k">Runnable</code> — and it is the very next slide.</p></div>
+    </section>
+
+    <!-- 5 · RUNNABLE 1 -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The standard interface</p>
+      <h2 class="anim">One shape: the <span style="color:var(--pipe)">Runnable</span>.</h2>
+      <p class="lead anim2">Every component — a model, a prompt, a retriever, a parser — follows the <b>same
+        <code class="k">Runnable</code> pattern</b>. Each one takes an input, does its job, returns an output.</p>
+      <ul class="pts anim2">
+        <li>Because they all share one interface, they all speak the same language.</li>
+        <li>That is <span class="hlp">why</span> they chain — the output of one is a valid input to the next.</li>
+        <li>You compose them with the LCEL pipe: <code class="k">prompt | model | parser</code>.</li>
+      </ul>
+      <div class="callout anim2">
+        <div class="lbl">The one idea to carry all day</div>
+        <p>If it is a <code class="k">Runnable</code>, it pipes. LangGraph nodes, LCEL chains, and agents are all
+          the same pieces — recombined at a different altitude.</p>
+      </div>
+    </section>
+
+    <!-- 6 · RUNNABLE 2 -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Why the standard interface matters</p>
+      <h2 class="anim">Swap any part without rewiring the rest.</h2>
+      <p class="lead anim2">Because the shape is fixed, the <b>provider behind a step is just a detail.</b>
+        OpenAI, Anthropic, Gemini — swap the model chip, the chain around it does not change.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">Swap the model</div><div class="d">GPT → Claude → Gemini. The prompt and parser stay put.</div></div>
+        <div class="card"><div class="t">Swap the retriever</div><div class="d">FAISS today, a hosted DB tomorrow. Same slot.</div></div>
+        <div class="card"><div class="t">Swap the parser</div><div class="d">Plain string → JSON → typed object. No rewrite.</div></div>
+      </div>
+      <div class="callout v anim2">
+        <div class="lbl">Proven in this repo</div>
+        <p>In <code class="k">langchain_fundamentals.py</code>, with no API key the model step is replaced by a
+          canned <code class="k">RunnableLambda</code> — and the <b>exact same</b> <code class="k">prompt | model | parser</code>
+          chain still runs. Swap-ability, demonstrated live.</p>
+      </div>
+    </section>
+
+    <!-- 7 · GENERIC LCEL PIPE DIAGRAM (#1) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The signature — the LCEL pipe rail</p>
+      <h2 class="anim">prompt <span class="hlp">|</span> model <span class="hlp">|</span> parser</h2>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 1040 210" width="1010">
+          <defs><marker id="m1" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--pipe)"/></marker></defs>
+          <!-- input -->
+          <text x="70" y="60" class="svg-lbl">Input</text>
+          <rect class="chip" x="24" y="76" width="92" height="58" rx="10"/>
+          <text x="70" y="105" class="chip-t">{topic}</text>
+          <line class="flow" x1="118" y1="105" x2="176" y2="105" marker-end="url(#m1)"/>
+          <text x="150" y="86" class="pipeglyph">|</text>
+          <!-- prompt -->
+          <rect class="chip act" x="184" y="70" width="168" height="70" rx="12"/>
+          <text x="268" y="97" class="chip-t">Prompt</text>
+          <text x="268" y="120" class="chip-s">TEMPLATE</text>
+          <line class="flow" x1="354" y1="105" x2="416" y2="105" marker-end="url(#m1)"/>
+          <text x="388" y="86" class="pipeglyph">|</text>
+          <!-- model -->
+          <rect class="chip act" x="424" y="70" width="168" height="70" rx="12"/>
+          <text x="508" y="97" class="chip-t">Model</text>
+          <text x="508" y="120" class="chip-s">CHAT MODEL</text>
+          <line class="flow" x1="594" y1="105" x2="656" y2="105" marker-end="url(#m1)"/>
+          <text x="628" y="86" class="pipeglyph">|</text>
+          <!-- parser -->
+          <rect class="chip act" x="664" y="70" width="168" height="70" rx="12"/>
+          <text x="748" y="97" class="chip-t">Parser</text>
+          <text x="748" y="120" class="chip-s">OUTPUT</text>
+          <line class="flow" x1="834" y1="105" x2="900" y2="105" marker-end="url(#m1)"/>
+          <!-- answer -->
+          <rect class="chip sig" x="908" y="76" width="108" height="58" rx="10"/>
+          <text x="962" y="105" class="chip-t">Answer</text>
+          <text x="520" y="185" class="svg-note">Every chip is a Runnable · the bold | is the LCEL pipe carrying one output into the next input</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 8 · LCEL REAL OUTPUT -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · The pipe, actually running</p>
+      <h2 class="anim">The same chain, real output.</h2>
+      <p class="sub anim2"><code class="k">(prompt | model | parser).invoke(...)</code> — offline fallback path, from <code class="k">langchain_fundamentals.py</code>.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">[3] LCEL CHAIN  -&gt;  (prompt | model | parser).invoke(...)</span>
+<span class="out">A Runnable is LangChain's standard component interface, which is
+why prompts, models, and parsers all pipe together with `|`.</span>
+
+<span class="prompt">[4] TOOL + bind_tools  -&gt;  did the model ask to call the tool?</span>
+tool name        : <span class="tok-str">word_counter</span>
+tool description : <span class="tok-str">Count how many words are in the given text.</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:14px">One <code class="k">.invoke()</code> ran the whole pipe left to right. The tool
+        <code class="k">word_counter</code> is the next building block — a function the model can choose to call.</p>
+    </section>
+
+    <!-- 9 · CHAT MODELS -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Chat Models</p>
+      <h2 class="anim">Chat Models</h2>
+      <p class="lead anim2">A <b>standard wrapper around any LLM provider.</b> One consistent interface —
+        <code class="k">.invoke()</code> a message, get a message back — no matter who serves the model.</p>
+      <ul class="pts anim2">
+        <li><code class="k">ChatOpenAI</code>, <code class="k">ChatAnthropic</code>, <code class="k">ChatGoogleGenerativeAI</code> — same shape.</li>
+        <li>It is a <code class="k">Runnable</code>, so it drops straight into any <code class="k">|</code> chain.</li>
+      </ul>
+      <div class="callout anim2">
+        <div class="lbl">Tie-back</div>
+        <p>Every "LLM node" you built in LangGraph was, underneath, one of these chat-model calls.</p>
+      </div>
+    </section>
+
+    <!-- 10 · PROMPT TEMPLATES -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Prompt Templates</p>
+      <h2 class="anim">Prompt Templates</h2>
+      <p class="lead anim2"><b>Reusable instructions with variables</b> filled in at runtime. Write the wording once;
+        drop in different values on every call.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="tok-fn">ChatPromptTemplate</span>.from_template(
+  <span class="tok-str">"You are a concise teaching assistant. In ONE short "</span>
+  <span class="tok-str">"sentence, explain: {topic}"</span>
+)</pre>
+      </div>
+      <div class="callout anim2"><div class="lbl">Tie-back</div>
+        <p>The system prompts you hard-coded into LangGraph nodes are exactly this — just without the reusable <code class="k">{variable}</code> slot.</p></div>
+    </section>
+
+    <!-- 11 · OUTPUT PARSERS -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Output Parsers</p>
+      <h2 class="anim">Output Parsers</h2>
+      <p class="lead anim2">Turn <b>raw LLM text into structured data</b> — a clean string, a JSON object, a list, a typed object —
+        so the next step gets something reliable instead of free-form prose.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">StrOutputParser</div><div class="d">Pulls the plain text out of the model's message. The simplest one.</div></div>
+        <div class="card"><div class="t">JsonOutputParser</div><div class="d">Parses the reply into a JSON object your code can read.</div></div>
+        <div class="card"><div class="t">Pydantic parser</div><div class="d">Validates the reply against a typed schema.</div></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">Why it matters</div>
+        <p>A parser is the last chip in the pipe — it makes the model's answer <span class="hlp">usable</span> by the rest of your program.</p></div>
+    </section>
+
+    <!-- 12 · TOOLS -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Tools</p>
+      <h2 class="anim">Tools</h2>
+      <p class="lead anim2"><b>Functions the LLM can decide to call.</b> This is the building block behind every
+        "agent taking action" you have ever seen.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="tok-fn">@tool</span>
+<span class="tok-kw">def</span> <span class="tok-fn">word_counter</span>(text: str) -&gt; int:
+    <span class="tok-str">"""Count how many words are in the given text."""</span>
+    <span class="tok-kw">return</span> len(text.split())</pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px">The decorator auto-derives the tool's <b>name, description, and typed argument schema</b> —
+        exactly what gets advertised to the model. The model reads that and chooses whether to call it.</p>
+    </section>
+
+    <!-- 13 · MEMORY -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Memory</p>
+      <h2 class="anim">Memory</h2>
+      <div class="cols anim2">
+        <div class="col good"><h3>Short-term</h3><ul>
+          <li>Context <b>within one conversation</b></li>
+          <li>The running message history on a turn</li>
+        </ul></div>
+        <div class="col good"><h3>Long-term</h3><ul>
+          <li><b>Persisted across sessions</b></li>
+          <li>Recall who a user is next week</li>
+        </ul></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">Tie-back — you already used this</div>
+        <p>This is the same concept as the <code class="k">state</code> and <b>checkpointing</b> you wired in LangGraph.
+          Memory is just that idea, named as a first-class LangChain building block.</p></div>
+    </section>
+
+    <!-- 14 · MIDDLEWARE CONCEPT -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — Middleware</p>
+      <h2 class="anim">Middleware</h2>
+      <p class="lead anim2"><b>Hooks at points in the agent loop</b> — before or after a model call, before or after a tool call.
+        Standard slots to inject control without rewriting the loop.</p>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 1000 150" width="960">
+          <defs><marker id="m2" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--pipe)"/></marker></defs>
+          <rect class="chip" x="20" y="46" width="150" height="58" rx="10"/><text x="95" y="75" class="chip-t">before model</text>
+          <line class="flow" x1="172" y1="75" x2="228" y2="75" marker-end="url(#m2)"/>
+          <rect class="chip act" x="236" y="46" width="150" height="58" rx="10"/><text x="311" y="75" class="chip-t">MODEL</text>
+          <line class="flow" x1="388" y1="75" x2="444" y2="75" marker-end="url(#m2)"/>
+          <rect class="chip" x="452" y="46" width="150" height="58" rx="10"/><text x="527" y="75" class="chip-t">after model</text>
+          <line class="flow" x1="604" y1="75" x2="660" y2="75" marker-end="url(#m2)"/>
+          <rect class="chip act" x="668" y="46" width="150" height="58" rx="10"/><text x="743" y="75" class="chip-t">TOOL</text>
+          <line class="flow" x1="820" y1="75" x2="876" y2="75" marker-end="url(#m2)"/>
+          <rect class="chip" x="884" y="46" width="96" height="58" rx="10"/><text x="932" y="75" class="chip-t">after</text>
+        </svg>
+      </div>
+      <div class="callout anim2"><div class="lbl">Tie-back</div>
+        <p>Before middleware, this kind of control meant hand-building custom logic inside a LangGraph node.
+          Middleware is LangChain's <span class="hlp">standard</span> way to give you that same control.</p></div>
+    </section>
+
+    <!-- 15 · MIDDLEWARE EXAMPLES -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Middleware — named built-ins</p>
+      <h2 class="anim">Four you can reach for today.</h2>
+      <div class="grid4 anim2">
+        <div class="card"><div class="t">Human-in-the-loop</div><div class="d">Pause for a person to <b>approve a tool call</b> before it runs.</div></div>
+        <div class="card s"><div class="t">Summarization</div><div class="d">Compress history to <b>prevent context overflow</b> on long runs.</div></div>
+        <div class="card"><div class="t">Automatic retries</div><div class="d">Re-try a <b>failed model call</b> with backoff instead of crashing.</div></div>
+        <div class="card v"><div class="t">Content moderation</div><div class="d">Screen inputs or outputs against a <b>safety policy</b>.</div></div>
+      </div>
+      <p class="sub anim2" style="margin-top:16px">This repo uses <code class="k">ModelRetryMiddleware</code> — the "automatic retries" example, a real built-in.</p>
+    </section>
+
+    <!-- 16 · CREATE_AGENT -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Building block — create_agent</p>
+      <h2 class="anim"><code style="font-size:.8em" class="k">create_agent</code> — model + tools, assembled.</h2>
+      <p class="sub anim2">The fast, standard way to build a working agent loop. What you hand-built in LangGraph, in a few lines —
+        and it <b>compiles to a LangGraph graph internally.</b></p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">[1] ASSEMBLED AGENT STRUCTURE</span>
+agent type       : <span class="out">CompiledStateGraph</span>  (create_agent is built on LangGraph)
+tools            : <span class="tok-str">['get_word_length']</span>
+middleware       : <span class="tok-str">['ModelRetryMiddleware']</span>
+graph nodes      : <span class="tok-str">['__start__', 'model', 'tools', '__end__']</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px"><code class="k">agent.get_graph().nodes</code> proves it: the same <b>model → tools</b> loop
+        you wired node-by-node, compiled for you.</p>
+    </section>
+
+    <!-- 17 · RECAP GRID -->
+    <section class="slide" data-section="SECTION 01 · CORE CONCEPTS">
+      <p class="kicker anim">01 · Recap — the building blocks</p>
+      <h2 class="anim">The parts, in one view.</h2>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">Chat Models</div><div class="d">Any provider, one interface.</div></div>
+        <div class="card"><div class="t">Prompt Templates</div><div class="d">Reusable instructions + variables.</div></div>
+        <div class="card"><div class="t">Output Parsers</div><div class="d">Text → structured data.</div></div>
+        <div class="card"><div class="t">Tools</div><div class="d">Functions the model can call.</div></div>
+        <div class="card"><div class="t">Memory</div><div class="d">State, short- and long-term.</div></div>
+        <div class="card"><div class="t">Middleware</div><div class="d">Hooks into the agent loop.</div></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">And they all share one property</div>
+        <p>Each is a <code class="k">Runnable</code> — which is why <code class="k">create_agent</code> can snap them together,
+          and why you can too, with a <span class="hlp">|</span>.</p></div>
+    </section>
+
+    <!-- 18 · 4-LAYER STACK (#2) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 02 · THE STACK">
+      <p class="kicker anim">02 · How it all stacks up</p>
+      <h2 class="anim">Four layers. Same foundation.</h2>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 900 380" width="720">
+          <defs><marker id="m3" markerWidth="12" markerHeight="12" refX="4" refY="9" orient="auto">
+            <path d="M4,0 L8,7 L0,7 Z" fill="var(--pipe)"/></marker></defs>
+          <!-- slabs top=most abstracted -->
+          <rect x="150" y="14" width="600" height="66" rx="12" fill="var(--ink)"/>
+          <text x="450" y="41" class="slabtxt" style="fill:#fff">Deep Agents</text>
+          <text x="450" y="63" class="slabsub" style="fill:#9fb2cc">PRE-BUILT ARCHITECTURE · MOST ABSTRACTED</text>
+          <line class="flow" x1="450" y1="108" x2="450" y2="88" marker-end="url(#m3)"/>
+
+          <rect x="150" y="112" width="600" height="66" rx="12" class="chip vec"/>
+          <text x="450" y="139" class="slabtxt">LangGraph</text>
+          <text x="450" y="161" class="slabsub">ORCHESTRATION / RUNTIME · STATE · NODES · EDGES</text>
+          <line class="flow" x1="450" y1="206" x2="450" y2="186" marker-end="url(#m3)"/>
+
+          <rect x="150" y="210" width="600" height="66" rx="12" class="chip act"/>
+          <text x="450" y="237" class="slabtxt">LangChain</text>
+          <text x="450" y="259" class="slabsub">THE COMPONENTS BEING ORCHESTRATED</text>
+          <line class="flow" x1="450" y1="304" x2="450" y2="284" marker-end="url(#m3)"/>
+
+          <rect x="150" y="308" width="600" height="66" rx="12" class="chip sig"/>
+          <text x="450" y="335" class="slabtxt">Chat Models</text>
+          <text x="450" y="357" class="slabsub">GPT · CLAUDE · GEMINI · ...</text>
+        </svg>
+      </div>
+      <p class="sub anim2" style="text-align:center;max-width:900px">Read top to bottom: more abstracted at the top, closer to the raw model at the bottom.</p>
+    </section>
+
+    <!-- 19 · LANGGRAPH LAYER -->
+    <section class="slide" data-section="SECTION 02 · THE STACK">
+      <p class="kicker anim">02 · The orchestration layer</p>
+      <h2 class="anim">LangGraph = the runtime.</h2>
+      <p class="lead anim2">LangGraph takes LangChain components — models, tools — and <b>arranges them into a graph:</b>
+        nodes, edges, state, checkpoints.</p>
+      <ul class="pts anim2">
+        <li>Every "LLM node" you built sat on top of a LangChain <b>chat-model</b> call.</li>
+        <li>Every "tool node" was a LangChain <b>tool</b>.</li>
+        <li>The graph decides <b>order and control flow</b>; the chips inside are pure LangChain.</li>
+      </ul>
+      <div class="callout v anim2"><div class="lbl">Same pieces, new altitude</div>
+        <p>LangGraph does not replace the components — it <span class="hlpv">choreographs</span> them.</p></div>
+    </section>
+
+    <!-- 20 · DEEP AGENTS LAYER -->
+    <section class="slide" data-section="SECTION 02 · THE STACK">
+      <p class="kicker anim">02 · One layer further up</p>
+      <h2 class="anim">Deep Agents = assembled architecture.</h2>
+      <p class="lead anim2">Deep Agents are built the same way, <b>one layer higher</b> — agent patterns like planning,
+        sub-agents, and file systems, assembled from LangGraph running LangChain components.</p>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">Planning</div><div class="d">Break a goal into steps before acting.</div></div>
+        <div class="card"><div class="t">Sub-agents</div><div class="d">Delegate a slice of work to a focused agent.</div></div>
+        <div class="card"><div class="t">File systems</div><div class="d">A scratchpad the agent can read and write.</div></div>
+      </div>
+      <p class="sub anim2" style="margin-top:16px">Peel any of these back and you find a LangGraph graph — and inside it, LangChain model, tool, and prompt calls.</p>
+    </section>
+
+    <!-- 21 · KEY POINT CALLOUT -->
+    <section class="slide" data-section="SECTION 02 · THE STACK">
+      <p class="kicker s anim">02 · The point to land</p>
+      <h2 class="anim">It is always LangChain calls underneath.</h2>
+      <div class="callout warn anim2" style="margin-top:30px">
+        <div class="lbl">Land this sentence</div>
+        <p style="font-size:24px">Whether you write raw LangChain, hand-build a LangGraph, or use a pre-built Deep Agent,
+          you are <b>always ultimately making LangChain model / tool / prompt calls.</b></p>
+      </div>
+      <p class="lead anim2" style="margin-top:26px">The <span class="hlp">abstraction level</span> changes.
+        The <span class="hlp">foundation</span> does not.</p>
+    </section>
+
+    <!-- 22 · TRACED EXAMPLE (#3) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 02 · THE STACK">
+      <p class="kicker anim">02 · One action, traced through the stack</p>
+      <h2 class="anim">An agent calls a tool — top to bottom.</h2>
+      <div class="two anim2">
+        <div class="svg-wrap" style="margin-top:0">
+          <svg viewBox="0 0 460 380" width="420">
+            <defs><marker id="m4" markerWidth="12" markerHeight="12" refX="4" refY="9" orient="auto">
+              <path d="M4,0 L8,7 L0,7 Z" fill="var(--pipe)"/></marker></defs>
+            <rect x="40" y="12" width="380" height="60" rx="12" fill="var(--ink)"/>
+            <text x="230" y="47" class="slabtxt" style="fill:#fff">Deep Agent</text>
+            <line class="flow" x1="230" y1="100" x2="230" y2="80" marker-end="url(#m4)"/>
+            <rect x="40" y="104" width="380" height="60" rx="12" class="chip vec"/>
+            <text x="230" y="139" class="slabtxt">LangGraph</text>
+            <line class="flow" x1="230" y1="192" x2="230" y2="172" marker-end="url(#m4)"/>
+            <rect x="40" y="196" width="380" height="60" rx="12" class="chip act"/>
+            <text x="230" y="231" class="slabtxt">LangChain</text>
+            <line class="flow" x1="230" y1="284" x2="230" y2="264" marker-end="url(#m4)"/>
+            <rect x="40" y="288" width="380" height="60" rx="12" class="chip sig"/>
+            <text x="230" y="323" class="slabtxt">Chat Model</text>
+          </svg>
+        </div>
+        <div>
+          <ul class="pts" style="margin-top:0">
+            <li><b>Deep Agent</b> — "I should check the word length." Decides to use a tool.</li>
+            <li><b>LangGraph</b> — routes the run from the <code class="k">model</code> node to the <code class="k">tools</code> node.</li>
+            <li><b>LangChain</b> — the <code class="k">@tool</code> function runs; its result becomes a tool message.</li>
+            <li><b>Chat Model</b> — reads the tool result and writes the final answer.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="sub anim2" style="margin-top:6px">Same event, four names for what is happening — one at each layer.</p>
+    </section>
+
+    <!-- 23 · RAG PROBLEM -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker s anim">03 · The problem RAG solves</p>
+      <h2 class="anim">A model only knows its training data.</h2>
+      <p class="lead anim2">It cannot answer about your <b>private or internal documents</b>, or anything that happened
+        after it was trained. Ask it about your company's policy and it will <span class="hl">guess</span>.</p>
+      <div class="cols anim2">
+        <div class="col bad"><h3>Out of reach for a plain model</h3><ul>
+          <li>Your internal wiki and support docs</li>
+          <li>Last week's release notes</li>
+          <li>Contracts, tickets, records in your database</li>
+        </ul></div>
+        <div class="col good"><h3>RAG makes these answerable</h3><ul>
+          <li>Fetch the relevant text first</li>
+          <li>Hand it to the model as context</li>
+          <li>Let it answer from what it was <b>given</b></li>
+        </ul></div>
+      </div>
+    </section>
+
+    <!-- 24 · OPEN BOOK -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · The one analogy</p>
+      <h2 class="anim">Closed-book vs open-book exam.</h2>
+      <div class="cols anim2" style="margin-top:26px">
+        <div class="col bad"><h3>Closed book — plain LLM</h3><ul>
+          <li>Answers from <b>memory alone</b></li>
+          <li>Confident even when it is wrong</li>
+          <li>No way to check the specifics</li>
+        </ul></div>
+        <div class="col good"><h3>Open book — RAG</h3><ul>
+          <li>Looks up the <b>relevant page first</b></li>
+          <li>Answers from what it just read</li>
+          <li>Grounded, and you can see the source</li>
+        </ul></div>
+      </div>
+      <p class="sub anim2" style="margin-top:18px">RAG hands the model the right page, open, before it answers.</p>
+    </section>
+
+    <!-- 25 · R A G -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Unpacking the acronym</p>
+      <h2 class="anim">R · A · G</h2>
+      <div class="grid3 anim2">
+        <div class="card"><div class="t">R — Retrieve</div><div class="d">Find the chunks of text most relevant to the question.</div></div>
+        <div class="card s"><div class="t">A — Augment</div><div class="d">Insert those chunks into the prompt as context.</div></div>
+        <div class="card v"><div class="t">G — Generate</div><div class="d">The model answers using that context instead of guessing.</div></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">The shift</div>
+        <p>From "what does the model <b>remember</b>?" to "what did we just <span class="hlp">give</span> it?"</p></div>
+    </section>
+
+    <!-- 26 · FULL PIPELINE (#4) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · The full RAG pipeline</p>
+      <h2 class="anim">Two flows, one join.</h2>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 1060 400" width="1010">
+          <defs><marker id="m5" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--pipe)"/></marker>
+            <marker id="m5v" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--vector)"/></marker></defs>
+
+          <!-- INDEX LANE (violet) -->
+          <text x="24" y="28" class="svg-lbl" style="fill:var(--vector);text-anchor:start">Index — once, offline</text>
+          <rect class="chip" x="24" y="40" width="140" height="54" rx="10"/><text x="94" y="67" class="chip-t">Document</text>
+          <line class="flow vec" x1="166" y1="67" x2="206" y2="67" marker-end="url(#m5v)"/>
+          <rect class="chip" x="208" y="40" width="120" height="54" rx="10"/><text x="268" y="67" class="chip-t">Split</text>
+          <line class="flow vec" x1="330" y1="67" x2="370" y2="67" marker-end="url(#m5v)"/>
+          <rect class="chip vec" x="372" y="40" width="120" height="54" rx="10"/><text x="432" y="67" class="chip-t">Embed</text>
+          <line class="flow vec" x1="494" y1="67" x2="534" y2="67" marker-end="url(#m5v)"/>
+          <rect class="chip vec" x="536" y="40" width="150" height="54" rx="10"/><text x="611" y="67" class="chip-t">Vector DB</text>
+
+          <!-- DB down into search -->
+          <line class="flow vec dash" x1="611" y1="96" x2="611" y2="196" marker-end="url(#m5v)"/>
+
+          <!-- QUERY LANE (pipe blue) -->
+          <text x="24" y="180" class="svg-lbl" style="fill:var(--pipe);text-anchor:start">Query — every question</text>
+          <rect class="chip" x="24" y="196" width="140" height="54" rx="10"/><text x="94" y="223" class="chip-t">Question</text>
+          <line class="flow" x1="166" y1="223" x2="206" y2="223" marker-end="url(#m5)"/>
+          <rect class="chip act" x="208" y="196" width="120" height="54" rx="10"/><text x="268" y="223" class="chip-t">Embed</text>
+          <line class="flow" x1="330" y1="223" x2="370" y2="223" marker-end="url(#m5)"/>
+          <rect class="chip act" x="372" y="196" width="170" height="54" rx="10"/><text x="457" y="223" class="chip-t">Search DB</text>
+          <line class="flow" x1="611" y1="250" x2="611" y2="300" marker-end="url(#m5)"/>
+
+          <!-- GENERATE LANE -->
+          <rect class="chip sig" x="480" y="302" width="262" height="54" rx="10"/>
+          <text x="611" y="329" class="chip-t">Chunks + Question</text>
+          <line class="flow" x1="742" y1="329" x2="782" y2="329" marker-end="url(#m5)"/>
+          <text x="762" y="312" class="pipeglyph">|</text>
+          <rect class="chip act" x="784" y="302" width="110" height="54" rx="10"/><text x="839" y="329" class="chip-t">Prompt</text>
+          <line class="flow" x1="896" y1="329" x2="920" y2="329" marker-end="url(#m5)"/>
+          <rect class="chip act" x="922" y="302" width="112" height="54" rx="10"/><text x="978" y="329" class="chip-t">Model</text>
+          <line class="flow" x1="978" y1="302" x2="978" y2="278" marker-end="url(#m5)"/>
+          <rect class="chip sig" x="922" y="222" width="112" height="52" rx="10"/><text x="978" y="248" class="chip-t">Answer</text>
+        </svg>
+      </div>
+      <p class="sub anim2" style="text-align:center">Indexing runs once up front. Every question flows through the bottom two lanes.</p>
+    </section>
+
+    <!-- 27 · LOADING -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Pipeline stage 1 — Loading</p>
+      <h2 class="anim">Loading</h2>
+      <p class="lead anim2"><b>Pull the raw document in</b> — a PDF, a webpage, a database record — and turn it into a
+        LangChain <code class="k">Document</code> object the pipeline can work with.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">[1/4] Loading document: docs/kestrel_home_faq.md</span>
+      <span class="out">loaded 1 document(s), 5058 characters total</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px">Different sources, one common <code class="k">Document</code> shape — so the rest of the pipe does not care where the text came from.</p>
+    </section>
+
+    <!-- 28 · SPLITTING -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Pipeline stage 2 — Splitting</p>
+      <h2 class="anim">Splitting into chunks</h2>
+      <p class="lead anim2">Cut the document into <b>smaller pieces.</b> Smaller chunks retrieve <span class="hl">more precisely</span> —
+        and a model cannot process a huge document in one shot anyway.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">[2/4] Splitting into chunks (chunk_size=500, chunk_overlap=50)</span>
+      <span class="out">produced 16 chunks</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px">A small <b>overlap</b> keeps a sentence that straddles a boundary from being cut in half and losing its meaning.
+        The Kestrel doc splits into <span class="hl">16 chunks</span>.</p>
+    </section>
+
+    <!-- 29 · EMBEDDING + GEOMETRY (#5) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 03 · RAG">
+      <p class="kicker v anim">03 · Pipeline stage 3 — Embedding</p>
+      <h2 class="anim">Text becomes geometry.</h2>
+      <div class="two anim2">
+        <div>
+          <p class="sub" style="margin-top:0">Each chunk of text becomes a <b>vector of numbers.</b> Similar meanings land at
+            <span class="hlv">similar vectors</span> — so "restocking fee" sits near "returns policy," far from "wifi hours."</p>
+          <p class="sub"><code class="k">all-MiniLM-L6-v2</code> maps every chunk to a 384-number point. Runs locally, no API key.</p>
+        </div>
+        <div class="svg-wrap" style="margin-top:0">
+          <svg viewBox="0 0 380 300" width="360">
+            <rect x="10" y="10" width="360" height="280" rx="12" fill="#fff" stroke="var(--line)"/>
+            <text x="190" y="34" class="svg-lbl" style="fill:var(--vector)">Meaning-space (2D view)</text>
+            <!-- cluster A returns -->
+            <circle class="dot" cx="110" cy="110" r="8"/><circle class="dot" cx="132" cy="128" r="8"/>
+            <circle class="dot" cx="98" cy="138" r="8"/><circle class="dot" cx="126" cy="100" r="8"/>
+            <text x="116" y="168" class="svg-note" style="fill:var(--vector)">returns / warranty</text>
+            <!-- cluster B pricing -->
+            <circle class="dot" cx="270" cy="90" r="8"/><circle class="dot" cx="292" cy="108" r="8"/>
+            <circle class="dot" cx="258" cy="116" r="8"/>
+            <text x="278" y="150" class="svg-note" style="fill:var(--vector)">pricing / promo</text>
+            <!-- cluster C support -->
+            <circle class="dot" cx="220" cy="230" r="8"/><circle class="dot" cx="244" cy="246" r="8"/>
+            <circle class="dot" cx="200" cy="248" r="8"/>
+            <text x="224" y="278" class="svg-note" style="fill:var(--vector)">support / SLA</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 30 · VECTOR DB + SIMILARITY (#6) -->
+    <section class="slide" data-diagram="1" data-section="SECTION 03 · RAG">
+      <p class="kicker v anim">03 · Pipeline stage 4 — Vector DB &amp; similarity</p>
+      <h2 class="anim">Closeness in meaning, not keywords.</h2>
+      <div class="two anim2">
+        <div>
+          <p class="sub" style="margin-top:0">A <b>vector database</b> stores those vectors and, given a new query vector,
+            finds the ones <span class="hl">closest</span> to it.</p>
+          <p class="sub"><b>Similarity search</b> = finding chunks whose <i>meaning</i> is nearest the question's meaning —
+            not exact keyword matching. Ask "late-return charge" and it still finds "restocking fee."</p>
+        </div>
+        <div class="svg-wrap" style="margin-top:0">
+          <svg viewBox="0 0 380 300" width="360">
+            <rect x="10" y="10" width="360" height="280" rx="12" fill="#fff" stroke="var(--line)"/>
+            <!-- query -->
+            <circle class="dot q" cx="180" cy="150" r="11"/>
+            <text x="180" y="128" class="svg-note" style="fill:var(--signal);font-weight:700">query</text>
+            <!-- near neighbors highlighted -->
+            <circle cx="140" cy="120" r="9" fill="var(--signal-soft)" stroke="var(--signal)" stroke-width="2"/>
+            <circle cx="215" cy="120" r="9" fill="var(--signal-soft)" stroke="var(--signal)" stroke-width="2"/>
+            <circle cx="200" cy="196" r="9" fill="var(--signal-soft)" stroke="var(--signal)" stroke-width="2"/>
+            <line x1="180" y1="150" x2="140" y2="120" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <line x1="180" y1="150" x2="215" y2="120" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <line x1="180" y1="150" x2="200" y2="196" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="4 4"/>
+            <!-- far dots -->
+            <circle class="dot" cx="60" cy="60" r="8"/><circle class="dot" cx="320" cy="70" r="8"/>
+            <circle class="dot" cx="300" cy="240" r="8"/><circle class="dot" cx="70" cy="250" r="8"/>
+            <text x="190" y="285" class="svg-lbl" style="fill:var(--muted)">top-k nearest = retrieved chunks</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 31 · FAISS vs hosted -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Which vector database?</p>
+      <h2 class="anim">Same idea, different scale.</h2>
+      <div class="grid2 anim2">
+        <div class="card"><div class="t">FAISS</div>
+          <div class="d"><b>Lightweight and local.</b> Just a file on disk — no server, no account, no key.
+            Perfect for a demo or a single machine. This repo uses FAISS.</div></div>
+        <div class="card v"><div class="t">Pinecone · Chroma</div>
+          <div class="d"><b>Hosted, larger-scale.</b> Managed services that hold far more vectors and serve many users.
+            Same concept, run as infrastructure.</div></div>
+      </div>
+      <div class="callout anim2"><div class="lbl">The mental model</div>
+        <p>A vector DB indexes by <span class="hl">closeness in meaning</span> instead of exact match —
+          not fundamentally different from a regular database, just a different notion of "matching."</p></div>
+    </section>
+
+    <!-- 32 · RETRIEVAL -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Pipeline stage 5 — Retrieval</p>
+      <h2 class="anim">Retrieval</h2>
+      <p class="lead anim2">The question is <b>embedded the same way</b> the chunks were. The database returns the
+        <span class="hl">closest-matching chunks</span> — the ones whose meaning is nearest the question.</p>
+      <ul class="pts anim2">
+        <li>Same embedding model for indexing and querying — so both live in the same space.</li>
+        <li>Usually the <b>top-k</b> chunks (here, <code class="k">k=3</code>).</li>
+        <li>A <code class="k">Retriever</code> is itself a <code class="k">Runnable</code> — so it drops into the pipe.</li>
+      </ul>
+      <div class="callout anim2"><div class="lbl">This is the "R" in RAG</div>
+        <p>No model has answered yet — we have only <span class="hlp">found the right pages.</span></p></div>
+    </section>
+
+    <!-- 33 · AUGMENTING -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Pipeline stage 6 — Augmenting</p>
+      <h2 class="anim">Augmenting the prompt</h2>
+      <p class="lead anim2">The retrieved chunks get <b>inserted into the prompt</b> as context, right alongside the original question.</p>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre>Answer the question using ONLY the context below.
+If the context does not contain the answer, say you
+don't have that information -- do not guess.
+
+Context:
+<span class="out">{retrieved chunks go here}</span>
+
+Question: <span class="tok-str">{the user's question}</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px">"Answer only from this context" is what keeps a grounded answer from <span class="hl">drifting back into guessing.</span></p>
+    </section>
+
+    <!-- 34 · GENERATION -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · Pipeline stage 7 — Generation</p>
+      <h2 class="anim">Generation</h2>
+      <p class="lead anim2">The model answers <b>using that context</b> instead of guessing. Same chat model as always —
+        it just has the right page open in front of it now.</p>
+      <div class="grid3 anim2">
+        <div class="card s"><div class="t">Grounded</div><div class="d">The answer traces back to a retrieved chunk.</div></div>
+        <div class="card"><div class="t">Honest</div><div class="d">If the context lacks it, the model can say so.</div></div>
+        <div class="card"><div class="t">Current</div><div class="d">Swap the document, and the answers update.</div></div>
+      </div>
+      <p class="sub anim2" style="margin-top:16px">Retrieve → Augment → <span class="hlv">Generate.</span> The last step is the only one the model itself does.</p>
+    </section>
+
+    <!-- 35 · COMPONENT MAPPING TABLE (#7) -->
+    <section class="slide" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · The LangChain component map</p>
+      <h2 class="anim">Each stage → a LangChain class.</h2>
+      <table class="map anim2">
+        <tr><th>RAG stage</th><th>LangChain piece</th><th>What it does</th></tr>
+        <tr><td>Loading</td><td class="cls">Document Loaders</td><td>Pull a source into a Document</td></tr>
+        <tr><td>Chunking</td><td class="cls">Text Splitters</td><td>Cut it into retrievable pieces</td></tr>
+        <tr><td>Embedding</td><td class="cls">Embeddings</td><td>Text → vectors of numbers</td></tr>
+        <tr><td>Storage + search</td><td class="cls">Vector Store</td><td>Hold vectors, find the nearest</td></tr>
+        <tr><td>Retrieval</td><td class="cls">Retriever</td><td>Tie search into the chain</td></tr>
+        <tr><td>Generation</td><td class="cls">Prompt | Model</td><td>Augment and answer, via the pipe</td></tr>
+      </table>
+    </section>
+
+    <!-- 36 · RAG = SAME PIPE -->
+    <section class="slide" data-diagram="1" data-section="SECTION 03 · RAG">
+      <p class="kicker anim">03 · The tie-back</p>
+      <h2 class="anim">RAG is the same pipe — with a retriever spliced in.</h2>
+      <div class="svg-wrap anim2">
+        <svg viewBox="0 0 1020 190" width="1000">
+          <defs><marker id="m6" markerWidth="11" markerHeight="11" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6 Z" fill="var(--pipe)"/></marker></defs>
+          <rect class="chip sig" x="20" y="60" width="150" height="60" rx="12"/><text x="95" y="84" class="chip-t">Retriever</text><text x="95" y="104" class="chip-s">+ QUESTION</text>
+          <line class="flow" x1="172" y1="90" x2="228" y2="90" marker-end="url(#m6)"/><text x="200" y="72" class="pipeglyph">|</text>
+          <rect class="chip act" x="236" y="60" width="150" height="60" rx="12"/><text x="311" y="94" class="chip-t">Prompt</text>
+          <line class="flow" x1="388" y1="90" x2="444" y2="90" marker-end="url(#m6)"/><text x="416" y="72" class="pipeglyph">|</text>
+          <rect class="chip act" x="452" y="60" width="150" height="60" rx="12"/><text x="527" y="94" class="chip-t">Model</text>
+          <line class="flow" x1="604" y1="90" x2="660" y2="90" marker-end="url(#m6)"/><text x="632" y="72" class="pipeglyph">|</text>
+          <rect class="chip act" x="668" y="60" width="150" height="60" rx="12"/><text x="743" y="94" class="chip-t">Parser</text>
+          <line class="flow" x1="820" y1="90" x2="876" y2="90" marker-end="url(#m6)"/>
+          <rect class="chip sig" x="884" y="60" width="118" height="60" rx="12"/><text x="943" y="94" class="chip-t">Answer</text>
+        </svg>
+      </div>
+      <div class="callout anim2"><div class="lbl">Not a new paradigm</div>
+        <p>RAG is the <span class="hlp">same building blocks</span> from Section 01, arranged in a particular order.
+          The only new chip is the <span class="hl">retriever</span> at the front.</p></div>
+    </section>
+
+    <!-- 37 · DEMO RUN OF SHOW -->
+    <section class="slide" data-section="SECTION 04 · DEMO">
+      <p class="kicker s anim">04 · Live demo — run of show</p>
+      <h2 class="anim">Four steps, watch the answer flip.</h2>
+      <div class="grid4 anim2">
+        <div class="card"><div class="t">1 · Ask plain</div><div class="d">Ask a plain LLM about the private Kestrel Home doc it has never seen.</div></div>
+        <div class="card s"><div class="t">2 · Ask with RAG</div><div class="d">Run the same question through the full retrieve → augment → generate pipeline.</div></div>
+        <div class="card"><div class="t">3 · Show chunks</div><div class="d">Print the retrieved chunks — so the room sees <i>why</i> the answer changed.</div></div>
+        <div class="card v"><div class="t">4 · Swap the doc</div><div class="d">Point at a different index and re-run — the pipeline is generic, not hardcoded.</div></div>
+      </div>
+      <p class="sub anim2" style="margin-top:16px">Question: <b>"What is Kestrel Home's restocking fee on returns outside the 45-day window?"</b></p>
+    </section>
+
+    <!-- 38 · DEMO BEFORE -->
+    <section class="slide" data-section="SECTION 04 · DEMO">
+      <p class="kicker anim">04 · The "before"</p>
+      <h2 class="anim">Plain LLM — confidently wrong.</h2>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">========================================================================
+PLAIN LLM  (no document access -- this is the 'before')
+========================================================================</span>
+<span class="warnline">"Kestrel Home charges a 15% restocking fee on returns that
+ are made outside their 45-day return window."</span>
+<span class="tok-com">^ A real plain-LLM answer. Specific and confident -- and
+  wrong: the model never saw the doc, so it guessed the fee.</span></pre>
+      </div>
+      <div class="callout warn anim2"><div class="lbl">This is the moment that sells RAG</div>
+        <p>It is not vague — it is <b>specific and wrong.</b> The <span class="hl">15%</span> fee is
+          invented; the document actually says <span class="hl">12%</span>.</p></div>
+    </section>
+
+    <!-- 39 · DEMO AFTER -->
+    <section class="slide" data-section="SECTION 04 · DEMO">
+      <p class="kicker s anim">04 · The "after"</p>
+      <h2 class="anim">RAG — grounded and right.</h2>
+      <div class="term anim2">
+        <div class="cap"><i></i><i></i><i></i></div>
+<pre><span class="prompt">[retrieved 3 chunks from 'faiss_index/']</span>
+chunk[0]: <span class="out">- A **12% restocking fee** applies to opened returns outside
+  the 45-day window but within the 26-month warranty period,
+  UNLESS the return reason is a confirmed hardware defect (in
+  which case the restocking fee is waived entirely).</span>
+
+<span class="prompt">[grounded answer]</span>
+<span class="out">Kestrel Home's restocking fee on returns outside the 45-day
+  window is 12%, unless the return is a confirmed hardware
+  defect -- in which case it is waived entirely.</span></pre>
+      </div>
+      <p class="sub anim2" style="margin-top:12px">Same question, same model — only RAG saw the document, so only RAG got
+        <span class="hl">12%</span> right. Index facts: the Kestrel doc → <b>16 chunks</b>; the swap doc → <b>5 chunks</b>.</p>
+    </section>
+
+    <!-- 40 · Q&A -->
+    <section class="slide" data-section="SECTION 05 · Q&amp;A">
+      <p class="kicker anim">05 · Anticipated questions</p>
+      <h2 class="anim">The three you will be asked.</h2>
+      <div class="grid2 anim2">
+        <div class="card"><div class="t">"Is this the same as LangGraph?"</div>
+          <div class="d"><b>Yes</b> — same components, a different layer of orchestration.</div></div>
+        <div class="card"><div class="t">"Do I need a vector DB for every agent?"</div>
+          <div class="d"><b>No</b> — only when the agent must answer from specific documents or knowledge.</div></div>
+        <div class="card v" style="grid-column:1 / span 2"><div class="t">"How is this different from uploading a file to ChatGPT or Claude?"</div>
+          <div class="d">Great bridge question — that upload feature is <b>effectively RAG happening automatically</b> behind the scenes.
+            Today you saw what it does under the hood.</div></div>
+      </div>
+    </section>
+
+    <!-- 41 · CLOSING -->
+    <section class="slide" data-section="LANGCHAIN BASICS">
+      <div class="anim"><span class="pill end">■ End</span></div>
+      <h2 class="anim2" style="font-size:52px;margin-top:20px">Same pieces. Different altitude.</h2>
+      <p class="lead anim2" style="max-width:900px">LangChain is the toolbox. Everything is a <code class="k">Runnable</code>,
+        so everything pipes with <span class="hlp">|</span>. LangGraph and Deep Agents just orchestrate those same pieces —
+        and RAG is that same pipe, with a retriever spliced in.</p>
+      <div class="title-foot anim2">THANK YOU · QUESTIONS WELCOME · lesson.html</div>
+    </section>
+
+    <div class="progress"><div id="bar"></div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var eyebrow = document.getElementById('eyebrow');
+  var counter = document.getElementById('counter');
+  var bar = document.getElementById('bar');
+  var deck = document.getElementById('deck');
+  var stage = document.getElementById('stage');
+  var idx = 0;
+
+  function pad(n){ return (n<10?'0':'') + n; }
+
+  function fit(){
+    var s = Math.min(window.innerWidth/1280, window.innerHeight/720);
+    deck.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+
+  function show(n){
+    idx = Math.max(0, Math.min(total-1, n));
+    for (var i=0;i<slides.length;i++){ slides[i].classList.toggle('active', i===idx); }
+    var sec = slides[idx].getAttribute('data-section') || '';
+    eyebrow.textContent = sec;
+    counter.textContent = pad(idx+1) + ' / ' + pad(total);
+    bar.style.width = ((idx+1)/total*100) + '%';
+    var want = '#slide-' + (idx+1);
+    if (location.hash !== want){ history.replaceState(null, '', want); }
+  }
+  function next(){ show(idx+1); }
+  function prev(){ show(idx-1); }
+
+  window.addEventListener('keydown', function(e){
+    switch(e.key){
+      case 'ArrowRight': case 'PageDown': case ' ': e.preventDefault(); next(); break;
+      case 'ArrowLeft': case 'PageUp': e.preventDefault(); prev(); break;
+      case 'Home': e.preventDefault(); show(0); break;
+      case 'End': e.preventDefault(); show(total-1); break;
+      case 'f': case 'F':
+        if (!document.fullscreenElement){ if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); }
+        else { if (document.exitFullscreen) document.exitFullscreen(); }
+        break;
+    }
+  });
+
+  stage.addEventListener('click', function(e){
+    if (e.clientX < window.innerWidth/2) prev(); else next();
+  });
+
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function(){
+    var m = location.hash.match(/#slide-(\d+)/);
+    if (m){ var n = (+m[1]) - 1; if (n !== idx) show(n); }
+  });
+
+  var m0 = location.hash.match(/#slide-(\d+)/);
+  if (m0){ idx = Math.max(0, Math.min(total-1, (+m0[1]) - 1)); }
+  fit();
+  show(idx);
+})();
+</script>
+</body>
+</html>
